@@ -1,1 +1,722 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINE</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .hidden { display: none !important; }
 
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #000; color: #fff; height: 100vh; overflow: hidden;
+  }
+
+  .auth {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .auth-card {
+    background: #111; padding: 28px; border-radius: 12px; border: 1px solid #333;
+    width: 100%; max-width: 360px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .auth-card h2 { text-align: center; margin-bottom: 6px; font-size: 1.5rem; font-weight: 700; }
+  .auth-card hr { border: none; border-top: 1px solid #333; margin: 8px 0; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 13px; color: #999; }
+  .auth-card input {
+    padding: 12px 14px; border-radius: 8px; border: 1px solid #333;
+    background: #1a1a1a; color: #fff; font-size: 15px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .auth-card input:focus { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); background: #222; }
+  .auth-card input::placeholder { color: #666; }
+  .auth-card input.error { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+
+  .btn {
+    padding: 12px; border: none; border-radius: 8px;
+    background: #fff; color: #000; font-weight: 600; cursor: pointer; font-size: 15px;
+    transition: background 0.2s, opacity 0.2s;
+  }
+  .btn:hover:not(:disabled) { background: #e0e0e0; }
+  .btn:active:not(:disabled) { background: #ccc; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: transparent; color: #fff; border: 1px solid #333; }
+  .btn.secondary:hover:not(:disabled) { background: #1a1a1a; border-color: #555; }
+  .btn.danger { background: transparent; color: #fff; border: 1px solid #555; }
+  .btn.danger:hover:not(:disabled) { background: #1a1a1a; border-color: #fff; color: #fff; }
+
+  .info { font-size: 13px; color: #999; min-height: 18px; text-align: center; }
+  .info.error { color: #fff; }
+  .info.success { color: #aaa; }
+
+  .app { display: flex; height: 100vh; }
+
+  .sidebar {
+    width: 300px; max-width: 100%; background: #111;
+    border-right: 1px solid #222;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .sidebar-header {
+    padding: 12px 14px; display: flex; justify-content: space-between;
+    align-items: center; font-weight: 600; border-bottom: 1px solid #222;
+  }
+  .sidebar-header small { color: #777; font-weight: 400; display: block; }
+  .logout { background: none; border: none; color: #aaa; cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+  .logout:hover { background: #1a1a1a; color: #fff; }
+
+  .group-box { padding: 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #222; }
+  .group-box input {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid #333;
+    background: #1a1a1a; color: #fff; outline: none; font-size: 14px;
+  }
+  .group-box input:focus { border-color: #fff; background: #222; }
+  .member-list { max-height: 150px; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .member-list label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
+  .member-list label:hover { background: #1a1a1a; }
+  .member-list input[type="checkbox"] { width: 18px; height: 18px; accent-color: #fff; }
+
+  .section-title {
+    padding: 10px 14px 4px; font-size: 12px; color: #777; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .chat-list { flex: 1; overflow-y: auto; padding-bottom: 16px; }
+  .chat-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer;
+    border-radius: 8px; margin: 2px 8px; transition: background 0.15s;
+  }
+  .chat-item:hover { background: #1a1a1a; }
+  .chat-item.active { background: #222; }
+  .chat-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-sub { font-size: 12px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; color: #000; font-size: 18px; background: #fff;
+  }
+
+  .chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #000; }
+  .chat-header {
+    padding: 12px 18px; background: #111; font-weight: 600; font-size: 15px;
+    border-bottom: 1px solid #222; min-height: 56px; display: flex; align-items: center;
+  }
+  .messages {
+    flex: 1; overflow-y: auto; padding: 16px 8%;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .msg {
+    max-width: 70%; padding: 8px 12px 6px; border-radius: 14px;
+    font-size: 15px; line-height: 1.4; word-wrap: break-word; background: #1a1a1a;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .msg.own { align-self: flex-end; background: #333; border-bottom-right-radius: 4px; }
+  .msg.other { align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg .sender { color: #aaa; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+  .msg .time { display: block; text-align: right; font-size: 10px; color: #666; margin-top: 3px; }
+  .empty { margin: auto; color: #555; font-size: 14px; }
+
+  .input-bar { display: flex; gap: 8px; padding: 10px 14px; background: #111; border-top: 1px solid #222; flex-shrink: 0; }
+  .input-bar input {
+    flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #333;
+    background: #1a1a1a; color: #fff; outline: none; font-size: 15px;
+    min-width: 0;
+  }
+  .input-bar input::placeholder { color: #666; }
+  .input-bar input:focus { border-color: #fff; background: #222; }
+  .input-bar button {
+    width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: #fff; color: #000; cursor: pointer; font-weight: 600; font-size: 18px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .input-bar button:hover:not(:disabled) { background: #e0e0e0; }
+  .input-bar button:active:not(:disabled) { background: #ccc; }
+  .input-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: #111; border: 1px solid #333; border-radius: 12px;
+    padding: 24px; width: 100%; max-width: 360px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .modal h3 { font-size: 1.1rem; font-weight: 600; }
+  .modal p { color: #aaa; font-size: 14px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .modal-actions .btn { flex: 1; }
+
+  @media (max-width: 768px) {
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; transform: translateX(-100%); transition: transform 0.3s ease; width: 280px; max-width: 85vw; box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+    .sidebar-overlay.visible { display: block; }
+
+    .chat-header { position: relative; }
+    .menu-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-right: 8px; border-radius: 8px; background: none; border: 1px solid #333; color: #fff; font-size: 20px; cursor: pointer; }
+    .menu-btn:hover { background: #1a1a1a; border-color: #555; }
+
+    .chat-area { width: 100%; }
+    .messages { padding: 16px 12px; }
+    .msg { max-width: 85%; }
+    .input-bar { padding: 10px 12px; }
+    .input-bar button { width: 40px; height: 40px; }
+
+    .auth-card { padding: 24px 20px; }
+    .auth { padding: 12px; }
+  }
+
+  @media (max-width: 480px) {
+    .auth-card { padding: 20px 16px; }
+    .avatar { width: 40px; height: 40px; font-size: 16px; }
+    .chat-item { padding: 10px 12px; gap: 10px; }
+    .sidebar { width: 100%; max-width: 100%; }
+  }
+
+  @media (min-width: 769px) {
+    .menu-btn { display: none !important; }
+    .sidebar-overlay { display: none !important; }
+  }
+
+  @media (max-width: 768px) and (orientation: landscape) and (min-width: 500px) {
+    .sidebar { position: relative; transform: none; width: 260px; box-shadow: none; }
+    .sidebar-overlay { display: none !important; }
+    .menu-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="auth" id="authScreen">
+  <div class="auth-card" role="main">
+    <h2>LINE</h2>
+
+    <div class="form-group">
+      <label for="regName">Имя для регистрации</label>
+      <input id="regName" placeholder="Введите имя" autocomplete="name" aria-describedby="regHelp">
+    </div>
+    <button class="btn" type="button" id="regBtn" onclick="register()">Зарегистрироваться</button>
+    <div id="regHelp" class="info" aria-live="polite"></div>
+
+    <hr>
+
+    <div class="form-group">
+      <label for="loginId">Ваш ID</label>
+      <input id="loginId" type="number" placeholder="Например: 1" autocomplete="off" aria-describedby="loginHelp">
+    </div>
+    <div class="form-group">
+      <label for="loginName">Ваше имя</label>
+      <input id="loginName" placeholder="Введите имя" autocomplete="name" aria-describedby="loginHelp">
+    </div>
+    <button class="btn" type="button" id="loginBtn" onclick="login()">Войти</button>
+    <div id="loginHelp" class="info" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="app hidden" id="appScreen">
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar" role="complementary" aria-label="Список чатов">
+    <header class="sidebar-header">
+      <div>
+        <span id="meName"></span>
+        <small id="meId"></small>
+      </div>
+      <button class="logout" onclick="logout()" aria-label="Выйти">Выйти</button>
+    </header>
+
+    <section class="group-box" aria-labelledby="groupTitle">
+      <button class="btn secondary" type="button" onclick="toggleGroupForm()" aria-expanded="false" aria-controls="groupForm">
+        + Новая группа
+      </button>
+      <div id="groupForm" class="hidden" role="region" aria-label="Создание группы">
+        <div class="form-group">
+          <label for="groupName">Название группы</label>
+          <input id="groupName" placeholder="Название группы" autocomplete="off">
+        </div>
+        <div class="member-list" id="memberList" role="group" aria-label="Участники"></div>
+        <button class="btn" type="button" onclick="createGroup()">Создать</button>
+      </div>
+    </section>
+
+    <nav class="chat-list" id="chatList" role="list" aria-label="Чаты"></nav>
+
+    <div style="padding: 12px; border-top: 1px solid #222; display: flex; flex-direction: column; gap: 8px;">
+      <button class="btn danger" type="button" onclick="openDeleteModal()">Удалить аккаунт</button>
+    </div>
+  </aside>
+
+  <main class="chat-area" role="main">
+    <header class="chat-header">
+      <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Открыть меню чатов" aria-expanded="false">☰</button>
+      <div id="chatTitle">Выберите чат</div>
+    </header>
+    <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Сообщения">
+      <div class="empty">Выберите собеседника или группу слева</div>
+    </div>
+    <div class="input-bar">
+      <input id="messageInput" placeholder="Сообщение" autocomplete="off" aria-label="Текст сообщения">
+      <button id="sendBtn" onclick="sendMessage()" aria-label="Отправить" disabled>➤</button>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay hidden" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+  <div class="modal">
+    <h3 id="deleteModalTitle">Удалить аккаунт</h3>
+    <p>Это действие необратимо. Все ваши сообщения, группы и контакты будут удалены навсегда. Вы уверены?</p>
+    <div class="modal-actions">
+      <button class="btn secondary" type="button" onclick="closeDeleteModal()">Отмена</button>
+      <button class="btn danger" type="button" onclick="confirmDeleteAccount()">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let me = null;
+let currentChat = null;
+let ws = null;
+let users = [];
+let groups = [];
+
+const $ = id => document.getElementById(id);
+const COLORS = ["#fff", "#ccc", "#aaa", "#888", "#666", "#444", "#222"];
+
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function colorFor(name) {
+  let sum = 0;
+  for (const ch of name) sum += ch.charCodeAt(0);
+  return COLORS[sum % COLORS.length];
+}
+
+function avatarHTML(name) {
+  return `<div class="avatar" style="background:${colorFor(name)}">${esc(name.charAt(0).toUpperCase())}</div>`;
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function showMsg(el, text, type = 'info') {
+  el.textContent = text;
+  el.className = 'info ' + type;
+}
+
+function clearMsg(el) {
+  el.textContent = '';
+  el.className = 'info';
+}
+
+function setInputError(input, isError) {
+  input.classList.toggle('error', isError);
+}
+
+function setLoading(btn, loading) {
+  btn.disabled = loading;
+  if (loading) btn.dataset.originalText = btn.textContent;
+  btn.textContent = loading ? '⏳' : (btn.dataset.originalText || btn.textContent);
+}
+
+async function register() {
+  const name = $("regName").value.trim();
+  const btn = $("regBtn");
+  const msgEl = $("regHelp");
+
+  clearMsg(msgEl);
+  setInputError($("regName"), false);
+
+  if (!name) {
+    showMsg(msgEl, 'Введите имя', 'error');
+    setInputError($("regName"), true);
+    $("regName").focus();
+    return;
+  }
+
+  setLoading(btn, true);
+
+  try {
+    const r = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+      throw new Error(data.detail || `Ошибка ${r.status}`);
+    }
+
+    showMsg(msgEl, `Регистрация успешна! Ваш ID: ${data.id}. Запомните его для входа.`, 'success');
+    $("loginId").value = data.id;
+    $("loginName").value = data.name;
+    $("regName").value = '';
+
+  } catch (err) {
+    console.error('Register error:', err);
+    showMsg(msgEl, 'Не удалось зарегистрироваться. Проверьте соединение с сервером.', 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+async function login() {
+  const idVal = $("loginId").value.trim();
+  const name = $("loginName").value.trim();
+  const btn = $("loginBtn");
+  const msgEl = $("loginHelp");
+
+  clearMsg(msgEl);
+  setInputError($("loginId"), false);
+  setInputError($("loginName"), false);
+
+  if (!idVal) {
+    showMsg(msgEl, 'Введите ID', 'error');
+    setInputError($("loginId"), true);
+    $("loginId").focus();
+    return;
+  }
+  if (!name) {
+    showMsg(msgEl, 'Введите имя', 'error');
+    setInputError($("loginName"), true);
+    $("loginName").focus();
+    return;
+  }
+
+  const id = parseInt(idVal, 10);
+  if (isNaN(id)) {
+    showMsg(msgEl, 'ID должен быть числом', 'error');
+    setInputError($("loginId"), true);
+    return;
+  }
+
+  setLoading(btn, true);
+
+  try {
+    const r = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name })
+    });
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Неверный ID или имя');
+    }
+
+    me = await r.json();
+    localStorage.setItem("messengerUser", JSON.stringify(me));
+    startApp();
+
+  } catch (err) {
+    console.error('Login error:', err);
+    showMsg(msgEl, err.message || 'Ошибка входа. Проверьте соединение с сервером.', 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+function logout() {
+  localStorage.removeItem("messengerUser");
+  if (ws) ws.close();
+  location.reload();
+}
+
+function openDeleteModal() {
+  $("deleteModal").classList.remove("hidden");
+}
+
+function closeDeleteModal() {
+  $("deleteModal").classList.add("hidden");
+}
+
+async function confirmDeleteAccount() {
+  const btn = document.querySelector('#deleteModal .btn.danger');
+  setLoading(btn, true);
+
+  try {
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+
+    const r = await fetch("/api/users/" + me.id, {
+      method: "DELETE"
+    });
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Не удалось удалить аккаунт');
+    }
+
+    localStorage.removeItem("messengerUser");
+    location.reload();
+
+  } catch (err) {
+    console.error('Delete account error:', err);
+    alert('Ошибка: ' + err.message);
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+async function startApp() {
+  $("authScreen").classList.add("hidden");
+  $("appScreen").classList.remove("hidden");
+  $("meName").textContent = me.name;
+  $("meId").textContent = "ID: " + me.id;
+
+  setupMessageInput();
+  await loadChats();
+  connectWS();
+}
+
+async function loadChats() {
+  try {
+    users = await (await fetch("/api/users")).json();
+    groups = await (await fetch("/api/groups/" + me.id)).json();
+    renderChats();
+    renderMemberList();
+  } catch (err) {
+    console.error('Load chats error:', err);
+  }
+}
+
+function renderChats() {
+  const list = $("chatList");
+  list.innerHTML = "";
+
+  const privateTitle = document.createElement("div");
+  privateTitle.className = "section-title";
+  privateTitle.textContent = "Личные чаты";
+  list.appendChild(privateTitle);
+
+  users.filter(u => u.id !== me.id).forEach(u => {
+    list.appendChild(makeChatItem({ type: "private", id: u.id, name: u.name }, "в сети"));
+  });
+
+  const groupTitle = document.createElement("div");
+  groupTitle.className = "section-title";
+  groupTitle.textContent = "Группы";
+  list.appendChild(groupTitle);
+
+  groups.forEach(g => {
+    list.appendChild(makeChatItem({ type: "group", id: g.id, name: g.name }, "группа"));
+  });
+}
+
+function makeChatItem(chat, sub) {
+  const div = document.createElement("div");
+  div.className = "chat-item";
+  div.setAttribute('role', 'listitem');
+  if (currentChat && currentChat.type === chat.type && currentChat.id === chat.id) {
+    div.classList.add("active");
+    div.setAttribute('aria-selected', 'true');
+  }
+  div.innerHTML = `${avatarHTML(chat.name)}
+    <div>
+      <div class="chat-name">${esc(chat.name)}</div>
+      <div class="chat-sub">${sub}</div>
+    </div>`;
+  div.onclick = () => openChat(chat);
+  return div;
+}
+
+function renderMemberList() {
+  const box = $("memberList");
+  box.innerHTML = "";
+  users.filter(u => u.id !== me.id).forEach(u => {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" value="${u.id}"> ${esc(u.name)}`;
+    box.appendChild(label);
+  });
+}
+
+async function openChat(chat) {
+  currentChat = chat;
+  $("chatTitle").textContent = chat.name + (chat.type === "group" ? " (группа)" : "");
+  renderChats();
+  closeSidebar();
+
+  try {
+    const url = `/api/messages?user_id=${me.id}&chat_type=${chat.type}&target_id=${chat.id}`;
+    const history = await (await fetch(url)).json();
+
+    const box = $("messages");
+    box.innerHTML = "";
+    history.forEach(addMessage);
+  } catch (err) {
+    console.error('Open chat error:', err);
+  }
+}
+
+function addMessage(m) {
+  const box = $("messages");
+  const isOwn = m.sender_id === me.id;
+  const div = document.createElement("div");
+  div.className = "msg " + (isOwn ? "own" : "other");
+
+  let html = "";
+  if (!isOwn) html += `<div class="sender">${esc(m.sender_name)}</div>`;
+  html += `<div>${esc(m.text)}</div>`;
+  html += `<span class="time">${fmtTime(m.created_at)}</span>`;
+  div.innerHTML = html;
+
+  const empty = box.querySelector('.empty');
+  if (empty) empty.remove();
+
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function isRelevant(m) {
+  if (!currentChat) return false;
+  if (currentChat.type === "group") {
+    return m.chat_type === "group" && m.target_id === currentChat.id;
+  }
+  return m.chat_type === "private" && (
+    (m.sender_id === me.id && m.target_id === currentChat.id) ||
+    (m.sender_id === currentChat.id && m.target_id === me.id)
+  );
+}
+
+function connectWS() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/${me.id}`);
+
+  ws.onmessage = e => {
+    try {
+      const m = JSON.parse(e.data);
+      if (m.type === "message" && isRelevant(m)) addMessage(m);
+    } catch (err) {
+      console.error('WS message error:', err);
+    }
+  };
+
+  ws.onclose = () => {
+    if (me) setTimeout(connectWS, 2000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('WS error:', err);
+  };
+}
+
+function sendMessage() {
+  const input = $("messageInput");
+  const text = input.value.trim();
+  if (!text || !currentChat || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+  ws.send(JSON.stringify({
+    type: "message",
+    chat_type: currentChat.type,
+    target_id: currentChat.id,
+    text
+  }));
+  input.value = "";
+  updateSendBtn();
+}
+
+function setupMessageInput() {
+  const input = $("messageInput");
+  const btn = $("sendBtn");
+
+  input.addEventListener("input", updateSendBtn);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+}
+
+function updateSendBtn() {
+  const input = $("messageInput");
+  const btn = $("sendBtn");
+  const canSend = input.value.trim().length > 0 && currentChat && ws && ws.readyState === WebSocket.OPEN;
+  btn.disabled = !canSend;
+}
+
+function toggleGroupForm() {
+  const form = $("groupForm");
+  const btn = document.querySelector('.group-box .btn.secondary');
+  const isHidden = form.classList.toggle("hidden");
+  if (btn) btn.setAttribute('aria-expanded', !isHidden);
+}
+
+async function createGroup() {
+  const name = $("groupName").value.trim();
+  const members = [...document.querySelectorAll("#memberList input:checked")]
+    .map(cb => parseInt(cb.value));
+  if (!name) return;
+
+  try {
+    const r = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, created_by: me.id, members })
+    });
+    if (r.ok) {
+      $("groupName").value = "";
+      document.querySelectorAll("#memberList input").forEach(cb => cb.checked = false);
+      toggleGroupForm();
+      await loadChats();
+    }
+  } catch (err) {
+    console.error('Create group error:', err);
+  }
+}
+
+function toggleSidebar() {
+  const sidebar = $("sidebar");
+  const overlay = $("sidebarOverlay");
+  const btn = $("menuBtn");
+  const isOpen = sidebar.classList.toggle("open");
+  overlay.classList.toggle("visible", isOpen);
+  btn.setAttribute('aria-expanded', isOpen);
+}
+
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+  $("sidebarOverlay").classList.remove("visible");
+  $("menuBtn").setAttribute('aria-expanded', 'false');
+}
+
+const saved = localStorage.getItem("messengerUser");
+if (saved) {
+  try {
+    me = JSON.parse(saved);
+    startApp();
+  } catch (err) {
+    console.error('Auto-login error:', err);
+    localStorage.removeItem("messengerUser");
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSidebar();
+    closeDeleteModal();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    $("messageInput")?.focus();
+  }
+});
+
+$("deleteModal")?.addEventListener('click', e => {
+  if (e.target === $("deleteModal")) closeDeleteModal();
+});
+</script>
+</body>
+</html>
